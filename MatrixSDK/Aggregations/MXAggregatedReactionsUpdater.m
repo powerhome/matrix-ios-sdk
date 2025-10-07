@@ -134,7 +134,7 @@
 
     if (!reactions)
     {
-        reactions = [self reactionCountsOnEvent:eventId inRoom:roomId];
+        reactions = [self computeReactionCountsFromRelationsOnEvent:eventId inRoom:roomId];
     }
 
     // Count local echoes too
@@ -286,7 +286,7 @@
     }
 
     // Migrate data from matrix store to aggregation store if needed
-    [self checkAggregationStoreForEvent:eventId inRoomId:reactionEvent.roomId];
+    [self updateReactionCountsFromRelationsOnEvent:eventId inRoom:reactionEvent.roomId];
 
     // Create or update the current reaction count if it exists
     MXReactionCount *reactionCount = [self.store reactionCountForReaction:reaction onEvent:eventId];
@@ -321,7 +321,7 @@
 - (void)removeReaction:(NSString*)reaction onEvent:(NSString*)eventId inRoomId:(NSString*)roomId reactionEventId:(NSString*)reactionEventId
 {
     // Migrate data from matrix store to aggregation store if needed
-    [self checkAggregationStoreForEvent:eventId inRoomId:roomId];
+    [self updateReactionCountsFromRelationsOnEvent:eventId inRoom:roomId];
 
     // Create or update the current reaction count if it exists
     MXReactionCount *reactionCount = [self.store reactionCountForReaction:reaction onEvent:eventId];
@@ -640,21 +640,18 @@
 
 
 // Build reaction count from known relations
-- (void)checkAggregationStoreForEvent:(NSString*)eventId inRoomId:(NSString*)roomId
+- (void)updateReactionCountsFromRelationsOnEvent:(NSString*)eventId inRoom:(NSString*)roomId
 {
-    if (![self.store hasReactionCountsOnEvent:eventId])
+    NSArray<MXReactionCount*> *reactions = [self computeReactionCountsFromRelationsOnEvent:eventId inRoom:roomId];
+    
+    if (reactions)
     {
-        NSArray<MXReactionCount*> *reactions = [self reactionCountsOnEvent:eventId inRoom:roomId];
-        
-        if (reactions)
-        {
-            [self.store setReactionCounts:reactions onEvent:eventId inRoom:roomId];
-        }
+        [self.store setReactionCounts:reactions onEvent:eventId inRoom:roomId];
     }
 }
 
 // Compute reactions counts from relations we know
-- (nullable NSArray<MXReactionCount*> *)reactionCountsOnEvent:(NSString*)eventId inRoom:(NSString*)roomId
+- (nullable NSArray<MXReactionCount*> *)computeReactionCountsFromRelationsOnEvent:(NSString*)eventId inRoom:(NSString*)roomId
 {
     NSMutableDictionary<NSString*, MXReactionCount*> *reactionCountDict;
 

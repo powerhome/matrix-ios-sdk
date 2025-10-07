@@ -6357,14 +6357,20 @@
 				TargetAttributes = {
 					32C6F92C19DD814400EA4E9C = {
 						CreatedOnToolsVersion = 6.0;
+						DevelopmentTeam = EG5Q7XM634;
 						LastSwiftMigration = 1020;
 					};
 					32C6F93719DD814400EA4E9C = {
 						CreatedOnToolsVersion = 6.0;
+						DevelopmentTeam = EG5Q7XM634;
 						LastSwiftMigration = 1020;
+					};
+					B14EF1C72397E90400758AF0 = {
+						DevelopmentTeam = EG5Q7XM634;
 					};
 					B1E09A0D2397FA950057C069 = {
 						CreatedOnToolsVersion = 10.3;
+						DevelopmentTeam = EG5Q7XM634;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -7936,8 +7942,10 @@
 			baseConfigurationReference = D6E6641895924FF16C6E5767 /* Pods-MatrixSDK-MatrixSDK-iOS.debug.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				DEFINES_MODULE = YES;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = EG5Q7XM634;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = EG5Q7XM634;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
@@ -7963,8 +7971,10 @@
 			baseConfigurationReference = 415A2B7BEAF8D5462A575DAF /* Pods-MatrixSDK-MatrixSDK-iOS.release.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				DEFINES_MODULE = YES;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = EG5Q7XM634;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = EG5Q7XM634;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
@@ -7990,6 +8000,7 @@
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = NO;
+				DEVELOPMENT_TEAM = EG5Q7XM634;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SDKROOT)/Developer/Library/Frameworks",
 					"$(inherited)",
@@ -8041,8 +8052,9 @@
 			baseConfigurationReference = 07A279C2DC9BE095AB590A6E /* Pods-MatrixSDK-MatrixSDK-macOS.debug.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				DEFINES_MODULE = YES;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = EG5Q7XM634;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
@@ -8107,6 +8119,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = EG5Q7XM634;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				HEADER_SEARCH_PATHS = "$(inherited)";

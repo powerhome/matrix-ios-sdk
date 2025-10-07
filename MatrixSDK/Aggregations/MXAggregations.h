@@ -208,6 +208,12 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)resetData;
 
+/// Forces an update to recompute an event's associated `MXReactionCount`'s from the `MXAggregationsStore`'s `MXReactionRelation`s.
+/// - Parameters:
+///   - eventId: ID of event to recompute
+///   - roomId: ID of room event is within
+- (void)forceUpdateReactionCountsForEvent:(NSString*)eventId
+                                   inRoom:(NSString*)roomId;
 @end
 
 NS_ASSUME_NONNULL_END
