@@ -276,6 +276,16 @@
     [self.store addReactionRelation:relation inRoom:reactionEvent.roomId];
 }
 
+- (void)ensureReactionCountsSeededFromRelationsOnEvent:(NSString*)eventId inRoom:(NSString*)roomId
+{
+    if (![self.store hasReactionCountsOnEvent:eventId]) {
+        NSArray<MXReactionCount*> *reactions = [self computeReactionCountsFromRelationsOnEvent:eventId inRoom:roomId];
+        if (reactions) {
+            [self.store setReactionCounts:reactions onEvent:eventId inRoom:roomId];
+        }
+    }
+}
+
 - (void)updateReactionCountForReaction:(NSString*)reaction forEvent:(NSString*)eventId reactionEvent:(MXEvent *)reactionEvent
 {
     BOOL isANewReaction = NO;
@@ -321,7 +331,7 @@
 - (void)removeReaction:(NSString*)reaction onEvent:(NSString*)eventId inRoomId:(NSString*)roomId reactionEventId:(NSString*)reactionEventId
 {
     // Migrate data from matrix store to aggregation store if needed
-    [self updateReactionCountsFromRelationsOnEvent:eventId inRoom:roomId];
+    [self ensureReactionCountsSeededFromRelationsOnEvent:eventId inRoom:roomId];
 
     // Create or update the current reaction count if it exists
     MXReactionCount *reactionCount = [self.store reactionCountForReaction:reaction onEvent:eventId];
@@ -673,7 +683,7 @@
             reactionCountDict[relation.reaction] = reactionCount;
         }
         
-        if ((reactionCount.originServerTs == 0 && relation.originServerTs > 0) || (reactionCount.originServerTs > reactionCount.originServerTs))
+        if ((reactionCount.originServerTs == 0 && relation.originServerTs > 0) || (reactionCount.originServerTs > relation.originServerTs))
         {
             reactionCount.originServerTs = relation.originServerTs;
         }
