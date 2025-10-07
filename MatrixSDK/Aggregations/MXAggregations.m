@@ -234,6 +234,10 @@
     [self.beaconInfoSummaryStore deleteAllBeaconInfoSummaries];
 }
 
+- (void)forceUpdateReactionCountsForEvent:(NSString *)eventId inRoom:(NSString *)roomId
+{
+    [self.aggregatedReactionsUpdater updateReactionCountsFromRelationsOnEvent:eventId inRoom:roomId];
+}
 
 #pragma mark - SDK-Private methods -
 

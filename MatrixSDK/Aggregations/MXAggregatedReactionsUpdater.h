@@ -54,6 +54,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)handleReaction:(MXEvent *)event direction:(MXTimelineDirection)direction;
 - (void)handleRedaction:(MXEvent *)event;
 
+- (void)updateReactionCountsFromRelationsOnEvent:(NSString*)eventId inRoom:(NSString*)roomId;
 - (void)resetDataInRoom:(NSString *)roomId;
 
 @end
