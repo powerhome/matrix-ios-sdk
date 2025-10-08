@@ -305,10 +305,7 @@
                 [self.aggregatedReactionsUpdater handleReaction:event direction:direction];
                 break;
             case MXEventTypeRoomRedaction:
-                if (direction == MXTimelineDirectionForwards)
-                {
-                    [self.aggregatedReactionsUpdater handleRedaction:event];
-                }
+                [self.aggregatedReactionsUpdater handleRedaction:event];
                 break;
             case MXEventTypeBeaconInfo:
                 [self.beaconAggregations handleBeaconInfoWithEvent:event];
