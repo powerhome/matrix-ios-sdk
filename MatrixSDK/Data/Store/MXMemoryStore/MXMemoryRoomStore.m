@@ -87,9 +87,13 @@
 
 - (NSArray <NSString *>*)allEventIds
 {
-    NSMutableArray *eventIds = [[NSMutableArray alloc] initWithCapacity:messages.count];
-    for (MXEvent *event in messages) {
-        [eventIds addObject:event.eventId];
+    NSArray<MXEvent *> *snapshot = [messages copy];
+    NSMutableArray *eventIds = [[NSMutableArray alloc] initWithCapacity:snapshot.count];
+    for (MXEvent *event in snapshot) {
+        if (event.eventId)
+        {
+            [eventIds addObject:event.eventId];
+        }
     }
     return eventIds.copy;
 }
