@@ -3292,7 +3292,7 @@ typedef void (^MXOnResumeDone)(void);
 - (void)fixRoomsSummariesLastMessageWithMaxServerPaginationCount:(NSUInteger)maxServerPaginationCount
 {
     [self fixRoomsSummariesLastMessageWithMaxServerPaginationCount:maxServerPaginationCount
-                                                             force:NO
+                                                             force:YES
                                                           progress:nil
                                                         completion:nil];
 }
