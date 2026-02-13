@@ -170,6 +170,11 @@ FOUNDATION_EXPORT NSString *const kMXSessionDidLeaveRoomNotification;
 FOUNDATION_EXPORT NSString *const kMXSessionDidSyncNotification;
 
 /**
+ Posted when MXSession has starts/stops performing `fixRoomsSummariesLastMessage` for all rooms.
+ */
+FOUNDATION_EXPORT NSString *const kMXSessionFixingRoomsLastMessagesDidChangeNotification;
+
+/**
  Posted when MXSession has detected a change in the `invitedRooms` property.
  
  The user has received a room invitation or he has accepted or rejected one.
@@ -422,6 +427,11 @@ FOUNDATION_EXPORT NSString *const kMXSessionNoRoomTag;
     - We want to know if the server has any to-device messages queued up for us.
  */
 @property (nonatomic, readonly) BOOL catchingUp;
+
+/**
+ The flag indicating whether a fixRoomsLastMessage execution is ongoing.
+ */
+@property (nonatomic, readonly) BOOL fixingRoomsLastMessages;
 
 /**
  The id of the filter being used in /sync requests.
