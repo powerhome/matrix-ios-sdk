@@ -54,6 +54,7 @@ NSString *const kMXSessionNewRoomNotification = @"kMXSessionNewRoomNotification"
 NSString *const kMXSessionWillLeaveRoomNotification = @"kMXSessionWillLeaveRoomNotification";
 NSString *const kMXSessionDidLeaveRoomNotification = @"kMXSessionDidLeaveRoomNotification";
 NSString *const kMXSessionDidSyncNotification = @"kMXSessionDidSyncNotification";
+NSString *const kMXSessionFixingRoomsLastMessagesDidChangeNotification = @"kMXSessionFixingRoomsLastMessagesDidChangeNotification";
 NSString *const kMXSessionInvitedRoomsDidChangeNotification = @"kMXSessionInvitedRoomsDidChangeNotification";
 NSString *const kMXSessionOnToDeviceEventNotification = @"kMXSessionOnToDeviceEventNotification";
 NSString *const kMXSessionIgnoredUsersDidChangeNotification = @"kMXSessionIgnoredUsersDidChangeNotification";
@@ -1395,6 +1396,27 @@ typedef void (^MXOnResumeDone)(void);
 - (BOOL)isEventStreamInitialised
 {
     return (self.store.eventStreamToken != nil);
+}
+
+- (BOOL)fixingRoomsLastMessages
+{
+    return fixingRoomsLastMessages;
+}
+
+- (void)setFixingRoomsLastMessages:(BOOL)isFixingRoomsLastMessages
+{
+    if (fixingRoomsLastMessages == isFixingRoomsLastMessages)
+    {
+        return;
+    }
+
+    [self willChangeValueForKey:@"fixingRoomsLastMessages"];
+    fixingRoomsLastMessages = isFixingRoomsLastMessages;
+    [self didChangeValueForKey:@"fixingRoomsLastMessages"];
+
+    [[NSNotificationCenter defaultCenter] postNotificationName:kMXSessionFixingRoomsLastMessagesDidChangeNotification
+                                                        object:self
+                                                      userInfo:nil];
 }
 
 #pragma mark - MXSession pause prevention
@@ -3270,7 +3292,7 @@ typedef void (^MXOnResumeDone)(void);
 - (void)fixRoomsSummariesLastMessageWithMaxServerPaginationCount:(NSUInteger)maxServerPaginationCount
 {
     [self fixRoomsSummariesLastMessageWithMaxServerPaginationCount:maxServerPaginationCount
-                                                             force:NO
+                                                             force:YES
                                                           progress:nil
                                                         completion:nil];
 }
@@ -3288,7 +3310,7 @@ typedef void (^MXOnResumeDone)(void);
         }
         return;
     }
-    fixingRoomsLastMessages = YES;
+    [self setFixingRoomsLastMessages:YES];
     
     dispatch_group_t dispatchGroup = dispatch_group_create();
     
@@ -3382,7 +3404,7 @@ typedef void (^MXOnResumeDone)(void);
     }
     
     dispatch_group_notify(dispatchGroup, dispatch_get_main_queue(), ^{
-        self->fixingRoomsLastMessages = NO;
+        [self setFixingRoomsLastMessages:NO];
         
         // Commit store changes done
         if ([self.store respondsToSelector:@selector(commit)])
@@ -4667,8 +4689,8 @@ typedef void (^MXOnResumeDone)(void);
                  failure(error);
              }
          }];
-    } 
-    else 
+    }
+    else
     {
         if (success)
         {
