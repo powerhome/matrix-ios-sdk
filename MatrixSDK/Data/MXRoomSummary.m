@@ -52,6 +52,18 @@ NSUInteger const MXRoomSummaryPaginationChunkSize = 50;
  */
 static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
 
+/** Serial queue with user-initiated QoS used for room summary fetch continuations so work finishes promptly. */
+static dispatch_queue_t MXRoomSummaryFetchQueue(void)
+{
+    static dispatch_queue_t queue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        queue = dispatch_queue_create("org.matrix.sdk.roomSummaryFetch", DISPATCH_QUEUE_SERIAL);
+        dispatch_set_target_queue(queue, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0));
+    });
+    return queue;
+}
+
 
 @interface MXRoomSummary ()
 {
@@ -338,7 +350,30 @@ static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
         {
             onComplete();
         }
-    } failure:failure timeline:nil operation:nil commit:commit];
+    } failure:failure timeline:nil operation:nil callingThread:nil commit:commit];
+}
+
+- (void)mx_dispatchOnThread:(NSThread *)thread block:(dispatch_block_t)block
+{
+    if (!block)
+    {
+        return;
+    }
+
+    if (!thread || [NSThread currentThread] == thread)
+    {
+        block();
+        return;
+    }
+
+    if ([thread isMainThread])
+    {
+        dispatch_block_t qosBlock = dispatch_block_create_with_qos_class(0, QOS_CLASS_USER_INITIATED, 0, [block copy]);
+        dispatch_async(dispatch_get_main_queue(), qosBlock);
+        return;
+    }
+
+    dispatch_async(MXRoomSummaryFetchQueue(), [block copy]);
 }
 
 /**
@@ -351,6 +386,8 @@ static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
  @param operation the current http operation if any.
         The method may need several requests before fetching the right last message.
         If it happens, the first one is mutated to the others with [MXHTTPOperation mutateTo:].
+ @param callingThread The thread on which the caller invoked this flow; pass nil to use the current thread.
+        Used to schedule continuations on the same thread (main) or on a high-priority queue (background).
  @param commit tell whether the updated room summary must be committed to the store. Use NO when a more
         global [MXStore commit] will happen. This optimises IO.
  @return a MXHTTPOperation
@@ -359,7 +396,9 @@ static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
                                                        onComplete:(void (^)(void))onComplete
                                                           failure:(void (^)(NSError *))failure
                                                          timeline:(id<MXEventTimeline>)timeline
-                                                        operation:(MXHTTPOperation *)operation commit:(BOOL)commit
+                                                        operation:(MXHTTPOperation *)operation
+                                                    callingThread:(NSThread *)callingThread
+                                                           commit:(BOOL)commit
 {
     // Sanity checks
     MXRoom *room = self.room;
@@ -377,6 +416,11 @@ static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
         // Create an empty operation that will be mutated later
         operation = [[MXHTTPOperation alloc] init];
     }
+
+    if (!callingThread)
+    {
+        callingThread = [NSThread currentThread];
+    }
     
     // Get the room timeline
     if (!timeline)
@@ -385,7 +429,7 @@ static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
             // Use a copy of the live timeline to avoid any conflicts with listeners to the unique live timeline
             id<MXEventTimeline> timeline = [liveTimeline copyWithZone:nil];
             [timeline resetPagination];
-            [self fetchLastMessageWithMaxServerPaginationCount:maxServerPaginationCount onComplete:onComplete failure:failure timeline:timeline operation:operation commit:commit];
+            [self fetchLastMessageWithMaxServerPaginationCount:maxServerPaginationCount onComplete:onComplete failure:failure timeline:timeline operation:operation callingThread:callingThread commit:commit];
         }];
         return operation;
     }
@@ -427,7 +471,9 @@ static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
             else
             {
                 // Need more messages
-                [self fetchLastMessageWithMaxServerPaginationCount:maxServerPaginationCount onComplete:onComplete failure:failure timeline:timeline operation:operation commit:commit];
+                [self mx_dispatchOnThread:callingThread block:^{
+                    [self fetchLastMessageWithMaxServerPaginationCount:maxServerPaginationCount onComplete:onComplete failure:failure timeline:timeline operation:operation callingThread:callingThread commit:commit];
+                }];
             }
             
         } failure:failure];
@@ -455,7 +501,9 @@ static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
             {
                 MXLogDebug(@"[MXRoomSummary] fetchLastMessage: Failed to find last message in %@. Paginate more...", self.roomId);
                 NSUInteger newMaxServerPaginationCount = maxServerPaginationCount - MXRoomSummaryPaginationChunkSize;
-                [self fetchLastMessageWithMaxServerPaginationCount:newMaxServerPaginationCount onComplete:onComplete failure:failure timeline:timeline operation:operation commit:commit];
+                [self mx_dispatchOnThread:callingThread block:^{
+                    [self fetchLastMessageWithMaxServerPaginationCount:newMaxServerPaginationCount onComplete:onComplete failure:failure timeline:timeline operation:operation callingThread:callingThread commit:commit];
+                }];
             }
             else
             {
@@ -1023,7 +1071,7 @@ static NSUInteger const kMXRoomSummaryTrustComputationDelayMs = 1000;
     [aCoder encodeObject:_avatar forKey:@"avatar"];
     [aCoder encodeObject:_displayName forKey:@"displayname"];
     [aCoder encodeObject:_topic forKey:@"topic"];
-    [aCoder encodeObject:_creatorUserId forKey:@"creatorUserId"];    
+    [aCoder encodeObject:_creatorUserId forKey:@"creatorUserId"];
     [aCoder encodeObject:_aliases forKey:@"aliases"];
     [aCoder encodeInteger:(NSInteger)_membership forKey:@"membership"];
     [aCoder encodeObject:_membersCount forKey:@"membersCount"];
