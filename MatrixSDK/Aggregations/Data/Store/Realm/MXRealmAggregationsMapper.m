@@ -51,6 +51,7 @@
     reactionRelation.reaction = realmReactionRelation.reaction;
     reactionRelation.eventId = realmReactionRelation.eventId;
     reactionRelation.reactionEventId = realmReactionRelation.reactionEventId;
+    reactionRelation.senderId = realmReactionRelation.senderId;
     reactionRelation.originServerTs = realmReactionRelation.originServerTs;
 
     return reactionRelation;
@@ -62,6 +63,7 @@
     realmReactionRelation.reaction = reactionRelation.reaction;
     realmReactionRelation.eventId = reactionRelation.eventId;
     realmReactionRelation.reactionEventId = reactionRelation.reactionEventId;
+    realmReactionRelation.senderId = reactionRelation.senderId;
     realmReactionRelation.originServerTs = reactionRelation.originServerTs;
     realmReactionRelation.roomId = roomId;
     realmReactionRelation.primaryKey = [MXRealmReactionRelation primaryKeyFromEventId:reactionRelation.eventId

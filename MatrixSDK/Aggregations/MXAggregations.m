@@ -42,11 +42,21 @@
 
 @property (nonatomic, strong, readwrite) MXBeaconAggregations *beaconAggregations;
 @property (nonatomic, strong) id<MXBeaconInfoSummaryStoreProtocol> beaconInfoSummaryStore;
+@property (nonatomic) id roomDidFlushDataObserver;
 
 @end
 
 
 @implementation MXAggregations
+
+- (void)dealloc
+{
+    if (self.roomDidFlushDataObserver)
+    {
+        [[NSNotificationCenter defaultCenter] removeObserver:self.roomDidFlushDataObserver];
+        self.roomDidFlushDataObserver = nil;
+    }
+}
 
 #pragma mark - Public methods -
 
@@ -290,6 +300,19 @@
 
 - (void)registerListener
 {
+    __weak typeof(self) weakSelf = self;
+    self.roomDidFlushDataObserver = [[NSNotificationCenter defaultCenter] addObserverForName:kMXRoomDidFlushDataNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull notif) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) { return; }
+
+        MXRoom *room = notif.object;
+        if (![room isKindOfClass:MXRoom.class]) { return; }
+        if (room.mxSession != self.mxSession) { return; }
+
+        // Keep aggregation caches in sync with timeline flushes (limited sync gaps / history resets).
+        [self resetDataInRoom:room.roomId];
+    }];
+
     [self.mxSession listenToEvents:^(MXEvent *event, MXTimelineDirection direction, id customObject) {
 
         switch (event.eventType) {

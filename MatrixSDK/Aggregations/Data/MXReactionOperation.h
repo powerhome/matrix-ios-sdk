@@ -27,6 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface MXReactionOperation : NSObject
 
 @property (nonatomic) NSString *eventId;
+@property (nonatomic) NSString *roomId;
 @property (nonatomic) NSString *reaction;
 @property (nonatomic) uint64_t originServerTs;
 @property (nonatomic) BOOL isAddOperation;

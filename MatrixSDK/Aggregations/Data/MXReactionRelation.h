@@ -28,8 +28,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) NSString *eventId;
 @property (nonatomic) NSString *reaction;
 
-// TODO: We could add sender add senderId, originServerTs
+// Persist senderId so `myUserHasReacted` can be reconstructed after room-history flushes
+// without depending on the room event store still containing the reaction event.
 @property (nonatomic) NSString *reactionEventId;
+@property (nonatomic, nullable) NSString *senderId;
 @property (nonatomic) uint64_t originServerTs;
 
 @end
