@@ -261,6 +261,39 @@
 {
     [self.store deleteAllReactionCountsInRoom:roomId];
     [self.store deleteAllReactionRelationsInRoom:roomId];
+
+    // Flush any pending local reaction operations for this room. These in-memory local echoes can
+    // otherwise be applied on top of rebuilt counts after a limited timeline flush, inflating counts.
+    NSMutableArray<NSString*> *eventIdsToRemove = [NSMutableArray array];
+    for (NSString *eventId in self.reactionOperations)
+    {
+        NSMutableDictionary<NSString*, NSMutableArray<MXReactionOperation*>*> *operationsByReaction = self.reactionOperations[eventId];
+        NSMutableArray<NSString*> *reactionsToRemove = [NSMutableArray array];
+
+        for (NSString *reaction in operationsByReaction)
+        {
+            NSMutableArray<MXReactionOperation*> *operations = operationsByReaction[reaction];
+            NSPredicate *keepPredicate = [NSPredicate predicateWithBlock:^BOOL(MXReactionOperation *op, NSDictionary<NSString *,id> * _Nullable bindings) {
+                return ![op.roomId isEqualToString:roomId];
+            }];
+            NSArray<MXReactionOperation*> *filtered = [operations filteredArrayUsingPredicate:keepPredicate];
+            [operations removeAllObjects];
+            [operations addObjectsFromArray:filtered];
+
+            if (operations.count == 0)
+            {
+                [reactionsToRemove addObject:reaction];
+            }
+        }
+
+        [operationsByReaction removeObjectsForKeys:reactionsToRemove];
+        if (operationsByReaction.count == 0)
+        {
+            [eventIdsToRemove addObject:eventId];
+        }
+    }
+
+    [self.reactionOperations removeObjectsForKeys:eventIdsToRemove];
 }
 
 #pragma mark - Private methods -
@@ -271,6 +304,7 @@
     relation.reaction = reaction;
     relation.eventId = eventId;
     relation.reactionEventId = reactionEvent.eventId;
+    relation.senderId = reactionEvent.sender;
     relation.originServerTs = reactionEvent.originServerTs;
 
     [self.store addReactionRelation:relation inRoom:reactionEvent.roomId];
@@ -456,6 +490,7 @@
 {
     MXReactionOperation *reactionOperation = [MXReactionOperation new];
     reactionOperation.eventId = eventId;
+    reactionOperation.roomId = roomId;
     reactionOperation.reaction = reaction;
     reactionOperation.originServerTs = (uint64_t)([[NSDate date] timeIntervalSince1970] * 1000);;
     reactionOperation.isAddOperation = isAdd;
@@ -664,6 +699,7 @@
 - (nullable NSArray<MXReactionCount*> *)computeReactionCountsFromRelationsOnEvent:(NSString*)eventId inRoom:(NSString*)roomId
 {
     NSMutableDictionary<NSString*, MXReactionCount*> *reactionCountDict;
+    NSMutableSet<NSString*> *seenReactionDedupKeys;
 
     NSArray<MXReactionRelation*> *relations = [self.store reactionRelationsOnEvent:eventId];
     for (MXReactionRelation *relation in relations)
@@ -672,6 +708,19 @@
         {
             // Have the same behavior as reactionCountsFromMatrixStoreOnEvent
             reactionCountDict = [NSMutableDictionary dictionary];
+            seenReactionDedupKeys = [NSMutableSet set];
+        }
+
+        // Deduplicate corrupted/stale duplicate relations for the same reaction and sender.
+        // This mainly protects post-flush rebuilds where counts are recomputed from relations.
+        if (relation.senderId.length > 0)
+        {
+            NSString *dedupKey = [NSString stringWithFormat:@"%@|%@", relation.reaction, relation.senderId];
+            if ([seenReactionDedupKeys containsObject:dedupKey])
+            {
+                continue;
+            }
+            [seenReactionDedupKeys addObject:dedupKey];
         }
         
         MXReactionCount *reactionCount = reactionCountDict[relation.reaction];
@@ -692,11 +741,20 @@
 
         if (!reactionCount.myUserReactionEventId)
         {
-            // Determine if my user has reacted
-            MXEvent *event = [self.matrixStore eventWithEventId:relation.reactionEventId inRoom:roomId];
-            if ([event.sender isEqualToString:self.myUserId])
+            // Prefer persisted relation sender when available (survives room-history flushes better than
+            // looking the reaction event back up in the room store).
+            if ([relation.senderId isEqualToString:self.myUserId])
             {
                 reactionCount.myUserReactionEventId = relation.reactionEventId;
+            }
+            else
+            {
+                // Fallback for older persisted relations that do not have senderId yet.
+                MXEvent *event = [self.matrixStore eventWithEventId:relation.reactionEventId inRoom:roomId];
+                if ([event.sender isEqualToString:self.myUserId])
+                {
+                    reactionCount.myUserReactionEventId = relation.reactionEventId;
+                }
             }
         }
     }
