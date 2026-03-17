@@ -168,11 +168,14 @@
         // as the current current room state.
         // So, use the same state events content.
         // @TODO: Find another way than modifying the event content.
-        for (NSArray<MXEvent*> *events in stateEvents.allValues)
+        @synchronized (self)
         {
-            for (MXEvent *event in events)
+            for (NSArray<MXEvent*> *events in stateEvents.allValues)
             {
-                event.prevContent = event.content;
+                for (MXEvent *event in events)
+                {
+                    event.prevContent = event.content;
+                }
             }
         }
     }
@@ -200,31 +203,34 @@
 
 - (NSArray<MXEvent *> *)stateEvents
 {
-    NSMutableArray<MXEvent *> *state = [NSMutableArray array];
-    for (NSArray<MXEvent*> *events in stateEvents.allValues)
+    @synchronized (self)
     {
-        [state addObjectsFromArray:events];
-    }
+        NSMutableArray<MXEvent *> *state = [NSMutableArray array];
+        for (NSArray<MXEvent*> *events in stateEvents.allValues)
+        {
+            [state addObjectsFromArray:events];
+        }
 
-    // Members are also state events
-    for (MXRoomMember *roomMember in self.members.members)
-    {
-        [state addObject:roomMember.originalEvent];
-    }
-    
-    // Add room aliases stored by domain
-    for (MXEvent *event in roomAliases.allValues)
-    {
-        [state addObject:event];
-    }
+        // Members are also state events
+        for (MXRoomMember *roomMember in self.members.members)
+        {
+            [state addObject:roomMember.originalEvent];
+        }
 
-    // Third party invites are state events too
-    for (MXRoomThirdPartyInvite *thirdPartyInvite in self.thirdPartyInvites)
-    {
-        [state addObject:thirdPartyInvite.originalEvent];
-    }
+        // Add room aliases stored by domain
+        for (MXEvent *event in roomAliases.allValues)
+        {
+            [state addObject:event];
+        }
 
-    return state;
+        // Third party invites are state events too
+        for (MXRoomThirdPartyInvite *thirdPartyInvite in self.thirdPartyInvites)
+        {
+            [state addObject:thirdPartyInvite.originalEvent];
+        }
+
+        return state;
+    }
 }
 
 - (NSArray<MXRoomThirdPartyInvite *> *)thirdPartyInvites
@@ -234,16 +240,19 @@
 
 - (NSArray<NSString *> *)relatedGroups
 {
-    NSArray<NSString *> *relatedGroups;
-    
-    // Retrieve them from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomRelatedGroups].lastObject;
-    if (event && [self contentOfEvent:event])
+    @synchronized (self)
     {
-        MXJSONModelSetArray(relatedGroups, [self contentOfEvent:event][@"groups"]);
-        relatedGroups = [relatedGroups copy];
+        NSArray<NSString *> *relatedGroups;
+
+        // Retrieve them from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomRelatedGroups].lastObject;
+        if (event && [self contentOfEvent:event])
+        {
+            MXJSONModelSetArray(relatedGroups, [self contentOfEvent:event][@"groups"]);
+            relatedGroups = [relatedGroups copy];
+        }
+        return relatedGroups;
     }
-    return relatedGroups;
 }
 
 - (NSArray<NSString *> *)aliases
@@ -274,135 +283,160 @@
 
 - (NSString*)canonicalAlias
 {
-    NSString *canonicalAlias;
-    
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomCanonicalAlias].lastObject;
-    if (event && [self contentOfEvent:event])
+    @synchronized (self)
     {
-        MXJSONModelSetString(canonicalAlias, [self contentOfEvent:event][@"alias"]);
-        canonicalAlias = [canonicalAlias copy];
+        NSString *canonicalAlias;
+
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomCanonicalAlias].lastObject;
+        if (event && [self contentOfEvent:event])
+        {
+            MXJSONModelSetString(canonicalAlias, [self contentOfEvent:event][@"alias"]);
+            canonicalAlias = [canonicalAlias copy];
+        }
+        return canonicalAlias;
     }
-    return canonicalAlias;
 }
 
 - (NSString *)name
 {
-    NSString *name;
-    
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomName].lastObject;
-    if (event && [self contentOfEvent:event])
+    @synchronized (self)
     {
-        MXJSONModelSetString(name, [self contentOfEvent:event][@"name"]);
-        name = [name copy];
+        NSString *name;
+
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomName].lastObject;
+        if (event && [self contentOfEvent:event])
+        {
+            MXJSONModelSetString(name, [self contentOfEvent:event][@"name"]);
+            name = [name copy];
+        }
+        return name;
     }
-    return name;
 }
 
 - (NSString *)topic
 {
-    NSString *topic;
-    
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomTopic].lastObject;
-    if (event && [self contentOfEvent:event])
+    @synchronized (self)
     {
-        MXJSONModelSetString(topic, [self contentOfEvent:event][@"topic"]);
-        topic = [topic copy];
+        NSString *topic;
+
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomTopic].lastObject;
+        if (event && [self contentOfEvent:event])
+        {
+            MXJSONModelSetString(topic, [self contentOfEvent:event][@"topic"]);
+            topic = [topic copy];
+        }
+        return topic;
     }
-    return topic;
 }
 
 - (NSString *)avatar
 {
-    NSString *avatar;
-
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomAvatar].lastObject;
-    if (event && [self contentOfEvent:event])
+    @synchronized (self)
     {
-        MXJSONModelSetString(avatar, [self contentOfEvent:event][@"url"]);
-        avatar = [avatar copy];
+        NSString *avatar;
+
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomAvatar].lastObject;
+        if (event && [self contentOfEvent:event])
+        {
+            MXJSONModelSetString(avatar, [self contentOfEvent:event][@"url"]);
+            avatar = [avatar copy];
+        }
+        return avatar;
     }
-    return avatar;
 }
 
 - (NSString *)roomVersion
 {
-    NSString *roomVersion;
-    
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomCreate].lastObject;
-    NSDictionary<NSString *, id> *eventContent = [self contentOfEvent:event];
-    
-    if (event && eventContent)
+    @synchronized (self)
     {
-        MXJSONModelSetString(roomVersion, eventContent[@"room_version"]);
-        roomVersion = [roomVersion copy];
+        NSString *roomVersion;
 
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomCreate].lastObject;
+        NSDictionary<NSString *, id> *eventContent = [self contentOfEvent:event];
+
+        if (event && eventContent)
+        {
+            MXJSONModelSetString(roomVersion, eventContent[@"room_version"]);
+            roomVersion = [roomVersion copy];
+        }
+        return roomVersion;
     }
-    return roomVersion;
 }
 
 - (NSString *)creatorUserId
 {
-    NSString *creatorUserId;
-    
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomCreate].lastObject;
-    NSString* sender = [event sender];
-    
-    if (event && sender)
+    @synchronized (self)
     {
-        creatorUserId = [sender copy];
+        NSString *creatorUserId;
+
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomCreate].lastObject;
+        NSString* sender = [event sender];
+
+        if (event && sender)
+        {
+            creatorUserId = [sender copy];
+        }
+        return creatorUserId;
     }
-    return creatorUserId;
 }
 
 - (NSArray<NSString*> *)additionalCreators
 {
-    NSArray<NSString*> *additionalCreators = @[];
-    
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomCreate].lastObject;
-    NSDictionary<NSString *, id> *eventContent = [self contentOfEvent:event];
-    
-    if (event && eventContent)
+    @synchronized (self)
     {
-        MXJSONModelSetArray(additionalCreators, eventContent[@"additional_creators"]);
-        additionalCreators = [additionalCreators copy];
+        NSArray<NSString*> *additionalCreators = @[];
 
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomCreate].lastObject;
+        NSDictionary<NSString *, id> *eventContent = [self contentOfEvent:event];
+
+        if (event && eventContent)
+        {
+            MXJSONModelSetArray(additionalCreators, eventContent[@"additional_creators"]);
+            additionalCreators = [additionalCreators copy];
+        }
+        return additionalCreators;
     }
-    return additionalCreators;
 }
 
 - (MXRoomHistoryVisibility)historyVisibility
 {
-    MXRoomHistoryVisibility historyVisibility = kMXRoomHistoryVisibilityShared;
-
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomHistoryVisibility].lastObject;
-    if (event && [self contentOfEvent:event])
+    @synchronized (self)
     {
-        MXJSONModelSetString(historyVisibility, [self contentOfEvent:event][@"history_visibility"]);
-        historyVisibility = [historyVisibility copy];
+        MXRoomHistoryVisibility historyVisibility = kMXRoomHistoryVisibilityShared;
+
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomHistoryVisibility].lastObject;
+        if (event && [self contentOfEvent:event])
+        {
+            MXJSONModelSetString(historyVisibility, [self contentOfEvent:event][@"history_visibility"]);
+            historyVisibility = [historyVisibility copy];
+        }
+        return historyVisibility;
     }
-    return historyVisibility;
 }
 
 - (MXRoomJoinRule)joinRule
 {
-    MXRoomJoinRule joinRule = kMXRoomJoinRuleInvite;
-
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomJoinRules].lastObject;
-    if (event && [self contentOfEvent:event])
+    @synchronized (self)
     {
-        MXJSONModelSetString(joinRule, [self contentOfEvent:event][@"join_rule"]);
-        joinRule = [joinRule copy];
+        MXRoomJoinRule joinRule = kMXRoomJoinRuleInvite;
+
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomJoinRules].lastObject;
+        if (event && [self contentOfEvent:event])
+        {
+            MXJSONModelSetString(joinRule, [self contentOfEvent:event][@"join_rule"]);
+            joinRule = [joinRule copy];
+        }
+        return joinRule;
     }
-    return joinRule;
 }
 
 - (BOOL)isJoinRulePublic
@@ -412,37 +446,49 @@
 
 - (MXRoomGuestAccess)guestAccess
 {
-    MXRoomGuestAccess guestAccess = kMXRoomGuestAccessForbidden;
-
-    // Check it from the state events
-    MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomGuestAccess].lastObject;
-    if (event && [self contentOfEvent:event])
+    @synchronized (self)
     {
-        MXJSONModelSetString(guestAccess, [self contentOfEvent:event][@"guest_access"]);
-        guestAccess = [guestAccess copy];
+        MXRoomGuestAccess guestAccess = kMXRoomGuestAccessForbidden;
+
+        // Check it from the state events
+        MXEvent *event = [stateEvents objectForKey:kMXEventTypeStringRoomGuestAccess].lastObject;
+        if (event && [self contentOfEvent:event])
+        {
+            MXJSONModelSetString(guestAccess, [self contentOfEvent:event][@"guest_access"]);
+            guestAccess = [guestAccess copy];
+        }
+        return guestAccess;
     }
-    return guestAccess;
 }
 
 - (BOOL)isEncrypted
 {
-    return stateEvents[kMXEventTypeStringRoomEncryption] != nil;
+    @synchronized (self)
+    {
+        return stateEvents[kMXEventTypeStringRoomEncryption] != nil;
+    }
 }
 
 - (NSArray<NSString *> *)pinnedEvents
 {
-    NSArray<NSString *> *pinnedEvents;
+    @synchronized (self)
+    {
+        NSArray<NSString *> *pinnedEvents;
 
-    // Check them the m.room.pinned_events event
-    MXEvent *event = stateEvents[kMXEventTypeStringRoomPinnedEvents].lastObject;
-    MXJSONModelSetArray(pinnedEvents, [self contentOfEvent:event][@"pinned"]);
+        // Check them the m.room.pinned_events event
+        MXEvent *event = stateEvents[kMXEventTypeStringRoomPinnedEvents].lastObject;
+        MXJSONModelSetArray(pinnedEvents, [self contentOfEvent:event][@"pinned"]);
 
-    return pinnedEvents;
+        return pinnedEvents;
+    }
 }
 
 - (NSString *)encryptionAlgorithm
 {
-    return stateEvents[kMXEventTypeStringRoomEncryption].lastObject.content[@"algorithm"];
+    @synchronized (self)
+    {
+        return stateEvents[kMXEventTypeStringRoomEncryption].lastObject.content[@"algorithm"];
+    }
 }
 
 - (BOOL)isObsolete
@@ -452,17 +498,20 @@
 
 - (MXRoomTombStoneContent*)tombStoneContent
 {
-    MXRoomTombStoneContent *roomTombStoneContent = nil;
-    
-    // Check it from the state events
-    MXEvent *event = stateEvents[kMXEventTypeStringRoomTombStone].lastObject;
-    NSDictionary *eventContent = [self contentOfEvent:event];
-    if (eventContent)
+    @synchronized (self)
     {
-        roomTombStoneContent = [MXRoomTombStoneContent modelFromJSON:eventContent];
+        MXRoomTombStoneContent *roomTombStoneContent = nil;
+
+        // Check it from the state events
+        MXEvent *event = stateEvents[kMXEventTypeStringRoomTombStone].lastObject;
+        NSDictionary *eventContent = [self contentOfEvent:event];
+        if (eventContent)
+        {
+            roomTombStoneContent = [MXRoomTombStoneContent modelFromJSON:eventContent];
+        }
+
+        return roomTombStoneContent;
     }
-    
-    return roomTombStoneContent;
 }
 
 - (NSArray<MXBeaconInfo*>*)beaconInfos
@@ -487,128 +536,134 @@
 #pragma mark - State events handling
 - (void)handleStateEvents:(NSArray<MXEvent *> *)events;
 {
-    // Process the update on room members
-    if ([_members handleStateEvents:events])
+    @synchronized (self)
     {
-        // Update counters for currently known room members
-        _membersCount.members = _members.members.count;
-        _membersCount.joined = _members.joinedMembers.count;
-        _membersCount.invited =  [_members membersWithMembership:MXMembershipInvite].count;
-    }
-
-    @autoreleasepool
-    {
-        for (MXEvent *event in events)
+        // Process the update on room members
+        if ([_members handleStateEvents:events])
         {
-            switch (event.eventType)
+            // Update counters for currently known room members
+            _membersCount.members = _members.members.count;
+            _membersCount.joined = _members.joinedMembers.count;
+            _membersCount.invited =  [_members membersWithMembership:MXMembershipInvite].count;
+        }
+
+        @autoreleasepool
+        {
+            for (MXEvent *event in events)
             {
-                case MXEventTypeRoomMember:
+                switch (event.eventType)
                 {
-                    // User in this membership event
-                    NSString *userId = event.stateKey ? event.stateKey : event.sender;
-
-                    NSDictionary *content = [self contentOfEvent:event];
-
-                    // Compute my user membership indepently from MXRoomMembers
-                    if ([userId isEqualToString:mxSession.myUserId])
+                    case MXEventTypeRoomMember:
                     {
-                        MXRoomMember *roomMember = [[MXRoomMember alloc] initWithMXEvent:event andEventContent:content];
-                        _membership = roomMember.membership;
-                    }
+                        // User in this membership event
+                        NSString *userId = event.stateKey ? event.stateKey : event.sender;
 
-                    if (content[@"third_party_invite"][@"signed"][@"token"])
-                    {
-                        // Cache room member event that is successor of a third party invite event
-                        MXRoomMember *roomMember = [[MXRoomMember alloc] initWithMXEvent:event andEventContent:content];
-                        membersWithThirdPartyInviteTokenCache[roomMember.thirdPartyInviteToken] = roomMember;
-                    }
+                        NSDictionary *content = [self contentOfEvent:event];
 
-                    // In case of invite, process the provided but incomplete room state
-                    if (self.membership == MXMembershipInvite && event.inviteRoomState)
-                    {
-                        [self handleStateEvents:event.inviteRoomState];
-                    }
-                    else if (_isLive && self.membership == MXMembershipJoin && _membersCount.members > 2)
-                    {
-                        if ([userId isEqualToString:self.conferenceUserId])
+                        // Compute my user membership indepently from MXRoomMembers
+                        if ([userId isEqualToString:mxSession.myUserId])
                         {
-                            // Forward the change of the conference user membership to the call manager
                             MXRoomMember *roomMember = [[MXRoomMember alloc] initWithMXEvent:event andEventContent:content];
-                            [mxSession.callManager handleConferenceUserUpdate:roomMember inRoom:_roomId];
+                            _membership = roomMember.membership;
                         }
-                    }
 
-                    break;
-                }
-                case MXEventTypeRoomThirdPartyInvite:
-                {
-                    // The content and the prev_content of a m.room.third_party_invite event are the same.
-                    // So, use isLive to know if the invite must be added or removed (case of back state).
-                    if (_isLive)
-                    {
-                        MXRoomThirdPartyInvite *thirdPartyInvite = [[MXRoomThirdPartyInvite alloc] initWithMXEvent:event];
-                        if (thirdPartyInvite)
+                        if (content[@"third_party_invite"][@"signed"][@"token"])
                         {
-                            thirdPartyInvites[thirdPartyInvite.token] = thirdPartyInvite;
+                            // Cache room member event that is successor of a third party invite event
+                            MXRoomMember *roomMember = [[MXRoomMember alloc] initWithMXEvent:event andEventContent:content];
+                            membersWithThirdPartyInviteTokenCache[roomMember.thirdPartyInviteToken] = roomMember;
                         }
-                    }
-                    else
-                    {
-                        // Note: the 3pid invite token is stored in the event state key
-                        [thirdPartyInvites removeObjectForKey:event.stateKey];
-                    }
-                    break;
-                }
-                case MXEventTypeRoomAliases:
-                {
-                    // Sanity check
-                    if (event.stateKey.length)
-                    {
-                        // Store the bunch of aliases for the domain (which is the state_key)
-                        roomAliases[event.stateKey] = event;
-                    }
-                    break;
-                }
-                case MXEventTypeRoomPowerLevels:
-                {
-                    powerLevels = [MXRoomPowerLevels modelFromJSON:[self contentOfEvent:event]];
-                    // Compute max power level
-                    maxPowerLevel = powerLevels.usersDefault;
-                    NSArray<NSNumber *> *array = powerLevels.users.allValues;
-                    for (NSNumber *powerLevel in array)
-                    {
-                        NSInteger level = 0;
-                        MXJSONModelSetInteger(level, powerLevel);
-                        if (level > maxPowerLevel)
-                        {
-                            maxPowerLevel = level;
-                        }
-                    }
 
-                    // Do not break here to store the event into the stateEvents dictionary.
-                }
-                default:
-                    // Store other states into the stateEvents dictionary.
-                    if (!stateEvents[event.type])
-                    {
-                        stateEvents[event.type] = [NSMutableArray array];
+                        // In case of invite, process the provided but incomplete room state
+                        if (self.membership == MXMembershipInvite && event.inviteRoomState)
+                        {
+                            [self handleStateEvents:event.inviteRoomState];
+                        }
+                        else if (_isLive && self.membership == MXMembershipJoin && _membersCount.members > 2)
+                        {
+                            if ([userId isEqualToString:self.conferenceUserId])
+                            {
+                                // Forward the change of the conference user membership to the call manager
+                                MXRoomMember *roomMember = [[MXRoomMember alloc] initWithMXEvent:event andEventContent:content];
+                                [mxSession.callManager handleConferenceUserUpdate:roomMember inRoom:_roomId];
+                            }
+                        }
+
+                        break;
                     }
-                    [stateEvents[event.type] addObject:event];
-                    break;
+                    case MXEventTypeRoomThirdPartyInvite:
+                    {
+                        // The content and the prev_content of a m.room.third_party_invite event are the same.
+                        // So, use isLive to know if the invite must be added or removed (case of back state).
+                        if (_isLive)
+                        {
+                            MXRoomThirdPartyInvite *thirdPartyInvite = [[MXRoomThirdPartyInvite alloc] initWithMXEvent:event];
+                            if (thirdPartyInvite)
+                            {
+                                thirdPartyInvites[thirdPartyInvite.token] = thirdPartyInvite;
+                            }
+                        }
+                        else
+                        {
+                            // Note: the 3pid invite token is stored in the event state key
+                            [thirdPartyInvites removeObjectForKey:event.stateKey];
+                        }
+                        break;
+                    }
+                    case MXEventTypeRoomAliases:
+                    {
+                        // Sanity check
+                        if (event.stateKey.length)
+                        {
+                            // Store the bunch of aliases for the domain (which is the state_key)
+                            roomAliases[event.stateKey] = event;
+                        }
+                        break;
+                    }
+                    case MXEventTypeRoomPowerLevels:
+                    {
+                        powerLevels = [MXRoomPowerLevels modelFromJSON:[self contentOfEvent:event]];
+                        // Compute max power level
+                        maxPowerLevel = powerLevels.usersDefault;
+                        NSArray<NSNumber *> *array = powerLevels.users.allValues;
+                        for (NSNumber *powerLevel in array)
+                        {
+                            NSInteger level = 0;
+                            MXJSONModelSetInteger(level, powerLevel);
+                            if (level > maxPowerLevel)
+                            {
+                                maxPowerLevel = level;
+                            }
+                        }
+
+                        // Do not break here to store the event into the stateEvents dictionary.
+                    }
+                    default:
+                        // Store other states into the stateEvents dictionary.
+                        if (!stateEvents[event.type])
+                        {
+                            stateEvents[event.type] = [NSMutableArray array];
+                        }
+                        [stateEvents[event.type] addObject:event];
+                        break;
+                }
             }
         }
-    }
 
-    // Update store with new room state when all state event have been processed
-    if (_isLive && [mxSession.store respondsToSelector:@selector(storeStateForRoom:stateEvents:)])
-    {
-        [mxSession.store storeStateForRoom:_roomId stateEvents:self.stateEvents];
+        // Update store with new room state when all state event have been processed
+        if (_isLive && [mxSession.store respondsToSelector:@selector(storeStateForRoom:stateEvents:)])
+        {
+            [mxSession.store storeStateForRoom:_roomId stateEvents:self.stateEvents];
+        }
     }
 }
 
 - (NSArray<MXEvent*> *)stateEventsWithType:(MXEventTypeString)eventType
 {
-    return stateEvents[eventType];
+    @synchronized (self)
+    {
+        return [stateEvents[eventType] copy];
+    }
 }
 
 - (MXRoomMember *)memberWithThirdPartyInviteToken:(NSString *)thirdPartyInviteToken
@@ -718,42 +773,45 @@
 #pragma mark - NSCopying
 - (id)copyWithZone:(NSZone *)zone
 {
-    MXRoomState *stateCopy = [[MXRoomState allocWithZone:zone] init];
-
-    stateCopy->mxSession = mxSession;
-    stateCopy->_roomId = [_roomId copyWithZone:zone];
-
-    stateCopy->_isLive = _isLive;
-
-    // Copy the state events. A deep copy of each events array is necessary.
-    stateCopy->stateEvents = [[NSMutableDictionary allocWithZone:zone] initWithCapacity:stateEvents.count];
-    for (NSString *key in stateEvents)
+    @synchronized (self)
     {
-        // Copy the list of state events pointers. A deep copy is not necessary as MXEvent objects are immutable
-        stateCopy->stateEvents[key] = [[NSMutableArray allocWithZone:zone] initWithArray:stateEvents[key]];
+        MXRoomState *stateCopy = [[MXRoomState allocWithZone:zone] init];
+
+        stateCopy->mxSession = mxSession;
+        stateCopy->_roomId = [_roomId copyWithZone:zone];
+
+        stateCopy->_isLive = _isLive;
+
+        // Copy the state events. A deep copy of each events array is necessary.
+        stateCopy->stateEvents = [[NSMutableDictionary allocWithZone:zone] initWithCapacity:stateEvents.count];
+        for (NSString *key in stateEvents)
+        {
+            // Copy the list of state events pointers. A deep copy is not necessary as MXEvent objects are immutable
+            stateCopy->stateEvents[key] = [[NSMutableArray allocWithZone:zone] initWithArray:stateEvents[key]];
+        }
+
+        stateCopy->_members = [_members copyWithZone:zone];
+
+        stateCopy->_membersCount = [_membersCount copyWithZone:zone];
+
+        stateCopy->roomAliases = [[NSMutableDictionary allocWithZone:zone] initWithDictionary:roomAliases];
+
+        stateCopy->thirdPartyInvites = [[NSMutableDictionary allocWithZone:zone] initWithDictionary:thirdPartyInvites];
+
+        stateCopy->membersWithThirdPartyInviteTokenCache= [[NSMutableDictionary allocWithZone:zone] initWithDictionary:membersWithThirdPartyInviteTokenCache];
+
+        stateCopy->_membership = _membership;
+
+        stateCopy->powerLevels = [powerLevels copy];
+        stateCopy->maxPowerLevel = maxPowerLevel;
+
+        if (conferenceUserId)
+        {
+            stateCopy->conferenceUserId = [conferenceUserId copyWithZone:zone];
+        }
+
+        return stateCopy;
     }
-
-    stateCopy->_members = [_members copyWithZone:zone];
-
-    stateCopy->_membersCount = [_membersCount copyWithZone:zone];
-    
-    stateCopy->roomAliases = [[NSMutableDictionary allocWithZone:zone] initWithDictionary:roomAliases];
-
-    stateCopy->thirdPartyInvites = [[NSMutableDictionary allocWithZone:zone] initWithDictionary:thirdPartyInvites];
-
-    stateCopy->membersWithThirdPartyInviteTokenCache= [[NSMutableDictionary allocWithZone:zone] initWithDictionary:membersWithThirdPartyInviteTokenCache];
-    
-    stateCopy->_membership = _membership;
-
-    stateCopy->powerLevels = [powerLevels copy];
-    stateCopy->maxPowerLevel = maxPowerLevel;
-
-    if (conferenceUserId)
-    {
-        stateCopy->conferenceUserId = [conferenceUserId copyWithZone:zone];
-    }
-
-    return stateCopy;
 }
 
 @end
