@@ -340,7 +340,7 @@
     // Check whether these unread events have not been redacted.
     [newEvents enumerateObjectsUsingBlock:^(MXEvent * _Nonnull event, NSUInteger idx, BOOL * _Nonnull stop)
     {
-        if (!event.isRedactedEvent)
+        if (!event.isRedactedEvent && !event.isEditEvent)
         {
             result++;
         }
