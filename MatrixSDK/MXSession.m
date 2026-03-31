@@ -111,6 +111,7 @@ typedef void (^MXOnResumeDone)(void);
      Each key is a room id. Each value, the MXRoomSummary instance.
      */
     NSMutableDictionary<NSString*, MXRoomSummary*> *roomSummaries;
+    NSLock *roomSummariesLock;
 
     /**
      The current request of the event stream.
@@ -235,6 +236,7 @@ typedef void (^MXOnResumeDone)(void);
         mediaManager = [[MXMediaManager alloc] initWithRestClient:matrixRestClient];
         rooms = [NSMutableDictionary dictionary];
         roomSummaries = [NSMutableDictionary dictionary];
+        roomSummariesLock = [NSLock new];
         _roomSummaryUpdateDelegate = [MXRoomSummaryUpdater roomSummaryUpdaterForSession:self];
         _roomAccountDataUpdateDelegate = [MXRoomAccountDataUpdater roomAccountDataUpdaterForSession:self];
         globalEventListeners = [NSMutableArray array];
@@ -3044,7 +3046,9 @@ typedef void (^MXOnResumeDone)(void);
 - (MXRoomSummary *)createRoomSummary:(NSString *)roomId
 {
     MXRoomSummary *summary = [[MXRoomSummary alloc] initWithRoomId:roomId andMatrixSession:self];
+    [roomSummariesLock lock];
     roomSummaries[roomId] = summary;
+    [roomSummariesLock unlock];
 
     // Update the summary if necessary
     NSString *directUserId = [self directUserIdInRoom:roomId];
@@ -3239,7 +3243,9 @@ typedef void (^MXOnResumeDone)(void);
 
     if (roomId)
     {
+        [roomSummariesLock lock];
         roomSummary = roomSummaries[roomId];
+        [roomSummariesLock unlock];
         
         if (roomSummary == nil)
         {
@@ -3258,7 +3264,9 @@ typedef void (^MXOnResumeDone)(void);
                     [self eventWithEventId:roomSummary.lastMessage.eventId inRoom:roomSummary.roomId success:nil failure:nil];
                 }
                 
+                [roomSummariesLock lock];
                 roomSummaries[roomId] = roomSummary;
+                [roomSummariesLock unlock];
             }
         }
     }
@@ -5207,7 +5215,9 @@ typedef void (^MXOnResumeDone)(void);
     
     [self.spaceService.ancestorsPerRoomId enumerateKeysAndObjectsUsingBlock:^(NSString * _Nonnull roomId, NSSet<NSString *> * _Nonnull parentIds, BOOL * _Nonnull stop)
     {
+        [self->roomSummariesLock lock];
         self->roomSummaries[roomId].parentSpaceIds = parentIds;
+        [self->roomSummariesLock unlock];
     }];
 }
 
