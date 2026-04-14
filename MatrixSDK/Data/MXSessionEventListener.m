@@ -66,11 +66,14 @@
 {
     // Here sender is the MXSession instance. Cast it
     MXSession *mxSession = (MXSession *)self.sender;
-    
+
     for (NSString *roomId in roomEventListeners)
     {
         MXRoom *room = [mxSession roomWithRoomId:roomId];
-        [room removeListener:self->roomEventListeners[room.roomId]];
+        if (room)
+        {
+            [room removeListener:self->roomEventListeners[roomId]];
+        }
     }
     [roomEventListeners removeAllObjects];
 }
