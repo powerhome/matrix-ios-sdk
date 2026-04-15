@@ -63,7 +63,6 @@ static NSUInteger preloadOptions;
     NSMutableArray *roomsToCommitForOutgoingMessages;
 
     NSMutableDictionary *roomsToCommitForState;
-    NSLock *roomsToCommitForStateLock;
 
     NSMutableDictionary<NSString*, MXRoomAccountData*> *roomsToCommitForAccountData;
     
@@ -148,7 +147,6 @@ static NSUInteger preloadOptions;
         roomsToCommitForMessages = [NSMutableArray array];
         roomsToCommitForOutgoingMessages = [NSMutableArray array];
         roomsToCommitForState = [NSMutableDictionary dictionary];
-        roomsToCommitForStateLock = [NSLock new];
         roomsToCommitForAccountData = [NSMutableDictionary dictionary];
         roomsToCommitForReceipts = [NSMutableArray array];
         roomsToCommitForDeletion = [NSMutableArray array];
@@ -542,9 +540,7 @@ static NSUInteger preloadOptions;
 
 - (void)storeStateForRoom:(NSString*)roomId stateEvents:(NSArray*)stateEvents
 {
-    [roomsToCommitForStateLock lock];
     roomsToCommitForState[roomId] = stateEvents;
-    [roomsToCommitForStateLock unlock];
 }
 
 - (void)stateOfRoom:(NSString *)roomId success:(void (^)(NSArray<MXEvent *> * _Nonnull))success failure:(void (^)(NSError * _Nonnull))failure
@@ -1502,13 +1498,11 @@ static NSUInteger preloadOptions;
 
 - (void)saveRoomsState
 {
-    [roomsToCommitForStateLock lock];
     if (roomsToCommitForState.count)
     {
         // Take a snapshot of room ids to store to process them on the other thread
         NSDictionary *roomsToCommit = [NSDictionary dictionaryWithDictionary:roomsToCommitForState];
         [roomsToCommitForState removeAllObjects];
-        [roomsToCommitForStateLock unlock];
 #if DEBUG
         MXLogDebug(@"[MXFileStore commit] queuing saveRoomsState for %tu rooms", roomsToCommit.count);
 #endif
@@ -1540,8 +1534,6 @@ static NSUInteger preloadOptions;
             MXLogDebug(@"[MXFileStore commit] lasted %.0fms for %tu rooms state", [[NSDate date] timeIntervalSinceDate:startDate] * 1000, roomsToCommit.count);
 #endif
         });
-    } else {
-        [roomsToCommitForStateLock unlock];
     }
 }
 
