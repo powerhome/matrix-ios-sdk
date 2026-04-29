@@ -428,13 +428,6 @@ static dispatch_queue_t MXRoomSummaryFetchQueue(void)
         [room liveTimeline:^(id<MXEventTimeline> liveTimeline) {
             // Use a copy of the live timeline to avoid any conflicts with listeners to the unique live timeline
             id<MXEventTimeline> timeline = [liveTimeline copyWithZone:nil];
-            
-            if ([self.mxSession.roomSummaryUpdateDelegate isKindOfClass:MXRoomSummaryUpdater.class])
-            {
-                MXRoomSummaryUpdater *roomSummaryUpdater = (MXRoomSummaryUpdater *)self.mxSession.roomSummaryUpdateDelegate;
-                timeline.roomEventFilter.types = roomSummaryUpdater.lastMessageEventTypesAllowList;
-            }
-            
             [timeline resetPagination];
             [self fetchLastMessageWithMaxServerPaginationCount:maxServerPaginationCount onComplete:onComplete failure:failure timeline:timeline operation:operation callingThread:callingThread commit:commit];
         }];
