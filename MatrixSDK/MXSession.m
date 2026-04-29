@@ -1013,7 +1013,7 @@ typedef void (^MXOnResumeDone)(void);
                     [self setState:MXSessionStateInitialSyncFailed];
                     failure(error);
 
-                } clientTimeout:CLIENT_TIMEOUT_MS setPresence:self.preferredSyncPresenceString syncFilterId: self.syncFilterId];
+                } clientTimeout:CLIENT_TIMEOUT_MS setPresence:self.preferredSyncPresenceString syncFilterId: syncFilterId];
 
             } failure:^(NSError *error) {
 
