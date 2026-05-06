@@ -606,13 +606,22 @@
                         // Do not break here to store the event into the stateEvents dictionary.
                     }
                     default:
+                    {
                         // Store other states into the stateEvents dictionary.
-                        if (!stateEvents[event.type])
+                        MXEventTypeString eventType = event.type;
+                        if (!eventType.length)
                         {
-                            stateEvents[event.type] = [NSMutableArray array];
+                            MXLogWarning(@"[MXRoomState] handleStateEvents: Ignore malformed state event with no type. roomId: %@ eventId: %@", _roomId, event.eventId);
+                            break;
                         }
-                        [stateEvents[event.type] addObject:event];
+
+                        if (!stateEvents[eventType])
+                        {
+                            stateEvents[eventType] = [NSMutableArray array];
+                        }
+                        [stateEvents[eventType] addObject:event];
                         break;
+                    }
             }
         }
     }
