@@ -41,7 +41,7 @@
      The third party invites. The key is the token provided by the homeserver.
      */
     NSMutableDictionary<NSString*, MXRoomThirdPartyInvite*> *thirdPartyInvites;
-    
+
     /**
      Maximum power level observed in power level list
      */
@@ -201,6 +201,17 @@
         }
     }
     return content;
+}
+
+/** Build a writable copy of state events. Caller must hold stateLock. */
+- (NSMutableDictionary<NSString *, NSMutableArray<MXEvent *> *> *)mutableStateEventsCopyLocked
+{
+    NSMutableDictionary<NSString *, NSMutableArray<MXEvent *> *> *stateEventsCopy = [[NSMutableDictionary alloc] initWithCapacity:stateEvents.count];
+    for (NSString *key in stateEvents)
+    {
+        stateEventsCopy[key] = [stateEvents[key] mutableCopy];
+    }
+    return stateEventsCopy;
 }
 
 /** Build state events array. Caller must hold stateLock. */
@@ -500,6 +511,33 @@
     NSArray<MXEvent *> *stateSnapshot = nil;
     NSString *roomIdSnapshot = nil;
     BOOL shouldPersistState = NO;
+    __block NSMutableDictionary<NSString *, NSMutableArray<MXEvent *> *> *updatedStateEvents = nil;
+    __block NSMutableDictionary<NSString *, MXEvent *> *updatedRoomAliases = nil;
+    __block NSMutableDictionary<NSString *, MXRoomThirdPartyInvite *> *updatedThirdPartyInvites = nil;
+    __block NSMutableDictionary<NSString *, MXRoomMember *> *updatedMembersWithThirdPartyInviteTokenCache = nil;
+
+    void (^commitPendingDictionaryUpdates)(void) = ^{
+        if (updatedStateEvents)
+        {
+            stateEvents = updatedStateEvents;
+            updatedStateEvents = nil;
+        }
+        if (updatedRoomAliases)
+        {
+            roomAliases = updatedRoomAliases;
+            updatedRoomAliases = nil;
+        }
+        if (updatedThirdPartyInvites)
+        {
+            thirdPartyInvites = updatedThirdPartyInvites;
+            updatedThirdPartyInvites = nil;
+        }
+        if (updatedMembersWithThirdPartyInviteTokenCache)
+        {
+            membersWithThirdPartyInviteTokenCache = updatedMembersWithThirdPartyInviteTokenCache;
+            updatedMembersWithThirdPartyInviteTokenCache = nil;
+        }
+    };
 
     [stateLock lock];
     // Process the update on room members
@@ -535,12 +573,20 @@
                     {
                         // Cache room member event that is successor of a third party invite event
                         MXRoomMember *roomMember = [[MXRoomMember alloc] initWithMXEvent:event andEventContent:content];
-                        membersWithThirdPartyInviteTokenCache[roomMember.thirdPartyInviteToken] = roomMember;
+                        if (roomMember.thirdPartyInviteToken.length)
+                        {
+                            if (!updatedMembersWithThirdPartyInviteTokenCache)
+                            {
+                                updatedMembersWithThirdPartyInviteTokenCache = [membersWithThirdPartyInviteTokenCache mutableCopy];
+                            }
+                            updatedMembersWithThirdPartyInviteTokenCache[roomMember.thirdPartyInviteToken] = roomMember;
+                        }
                     }
 
                     // In case of invite, process the provided but incomplete room state
                     if (self.membership == MXMembershipInvite && event.inviteRoomState)
                     {
+                        commitPendingDictionaryUpdates();
                         [self handleStateEvents:event.inviteRoomState];
                     }
                     else if (_isLive && self.membership == MXMembershipJoin && _membersCount.members > 2)
@@ -565,15 +611,26 @@
                         if (_isLive)
                         {
                             MXRoomThirdPartyInvite *thirdPartyInvite = [[MXRoomThirdPartyInvite alloc] initWithMXEvent:event];
-                            if (thirdPartyInvite)
+                            if (thirdPartyInvite.token.length)
                             {
-                                thirdPartyInvites[thirdPartyInvite.token] = thirdPartyInvite;
+                                if (!updatedThirdPartyInvites)
+                                {
+                                    updatedThirdPartyInvites = [thirdPartyInvites mutableCopy];
+                                }
+                                updatedThirdPartyInvites[thirdPartyInvite.token] = thirdPartyInvite;
                             }
                         }
                         else
                         {
                             // Note: the 3pid invite token is stored in the event state key
-                            [thirdPartyInvites removeObjectForKey:event.stateKey];
+                            if (event.stateKey.length)
+                            {
+                                if (!updatedThirdPartyInvites)
+                                {
+                                    updatedThirdPartyInvites = [thirdPartyInvites mutableCopy];
+                                }
+                                [updatedThirdPartyInvites removeObjectForKey:event.stateKey];
+                            }
                         }
                         break;
                     }
@@ -583,7 +640,11 @@
                         if (event.stateKey.length)
                         {
                             // Store the bunch of aliases for the domain (which is the state_key)
-                            roomAliases[event.stateKey] = event;
+                            if (!updatedRoomAliases)
+                            {
+                                updatedRoomAliases = [roomAliases mutableCopy];
+                            }
+                            updatedRoomAliases[event.stateKey] = event;
                         }
                         break;
                     }
@@ -606,16 +667,32 @@
                         // Do not break here to store the event into the stateEvents dictionary.
                     }
                     default:
+                    {
                         // Store other states into the stateEvents dictionary.
-                        if (!stateEvents[event.type])
+                        MXEventTypeString eventType = event.type;
+                        if (!eventType.length)
                         {
-                            stateEvents[event.type] = [NSMutableArray array];
+                            MXLogWarning(@"[MXRoomState] handleStateEvents: Ignore malformed state event with no type. roomId: %@ eventId: %@", _roomId, event.eventId);
+                            break;
                         }
-                        [stateEvents[event.type] addObject:event];
+
+                        if (!updatedStateEvents)
+                        {
+                            updatedStateEvents = [self mutableStateEventsCopyLocked];
+                        }
+
+                        if (!updatedStateEvents[eventType])
+                        {
+                            updatedStateEvents[eventType] = [NSMutableArray array];
+                        }
+                        [updatedStateEvents[eventType] addObject:event];
                         break;
+                    }
             }
         }
     }
+
+    commitPendingDictionaryUpdates();
 
     if (_isLive && [mxSession.store respondsToSelector:@selector(storeStateForRoom:stateEvents:)])
     {
@@ -638,6 +715,11 @@
 
 - (NSArray<MXEvent*> *)stateEventsWithType:(MXEventTypeString)eventType
 {
+    if (!eventType.length)
+    {
+        return nil;
+    }
+
     [stateLock lock];
     NSArray *result = [stateEvents[eventType] copy];
     [stateLock unlock];
@@ -646,6 +728,11 @@
 
 - (MXRoomMember *)memberWithThirdPartyInviteToken:(NSString *)thirdPartyInviteToken
 {
+    if (!thirdPartyInviteToken.length)
+    {
+        return nil;
+    }
+
     [stateLock lock];
     MXRoomMember *member = membersWithThirdPartyInviteTokenCache[thirdPartyInviteToken];
     [stateLock unlock];
@@ -654,6 +741,11 @@
 
 - (MXRoomThirdPartyInvite *)thirdPartyInviteWithToken:(NSString *)thirdPartyInviteToken
 {
+    if (!thirdPartyInviteToken.length)
+    {
+        return nil;
+    }
+
     [stateLock lock];
     MXRoomThirdPartyInvite *invite = thirdPartyInvites[thirdPartyInviteToken];
     [stateLock unlock];
