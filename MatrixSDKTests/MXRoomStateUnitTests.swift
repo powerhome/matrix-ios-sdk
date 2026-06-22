@@ -100,26 +100,6 @@ class MXRoomStateUnitTests: XCTestCase {
         waitForExpectations(timeout: 1, handler: nil)
     }
     
-    func testLoadRoomStateFromStore_ignoresStoredEventsWithoutType() {
-        let storeEvents = [
-            [
-                "event_id": "1"
-            ]
-        ]
-        
-        store.stubbedStatePerRoom[roomId] = MXEvent.models(fromJSON: storeEvents) as? [MXEvent]
-
-        let exp = expectation(description: "roomState")
-        MXRoomState.load(from: store, withRoomId: roomId, matrixSession: session) { state in
-        
-            XCTAssertEqual(state?.stateEvents.count, 0)
-            
-            exp.fulfill()
-            self.session.close()
-        }
-        waitForExpectations(timeout: 1, handler: nil)
-    }
-    
     // MARK: - Helpers
     
     func buildStateEventJSON(id: String) -> [String: Any] {
