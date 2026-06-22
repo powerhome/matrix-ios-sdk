@@ -1220,7 +1220,7 @@ typedef void (^MXOnResumeDone)(void);
     if (!eventStreamRequest)
     {
         if (!ignoreSessionState && MXSessionStatePaused != _state)
-        {syncFilterId: syncFilterId
+        {
             MXLogDebug(@"[MXSession] background Sync cannot be done in the current state: %@", [MXTools readableSessionState:_state]);
             dispatch_async(dispatch_get_main_queue(), ^{
                 backgroundSyncfails(nil);
