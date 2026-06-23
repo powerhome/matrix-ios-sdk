@@ -71,7 +71,6 @@ static NSUInteger preloadOptions;
     NSMutableArray *roomsToCommitForDeletion;
 
     NSMutableDictionary *usersToCommit;
-    NSLock *usersToCommitLock;
     
     NSMutableDictionary *groupsToCommit;
     NSMutableArray *groupsToCommitForDeletion;
@@ -151,7 +150,6 @@ static NSUInteger preloadOptions;
         roomsToCommitForReceipts = [NSMutableArray array];
         roomsToCommitForDeletion = [NSMutableArray array];
         usersToCommit = [NSMutableDictionary dictionary];
-        usersToCommitLock = [NSLock new];
         groupsToCommit = [NSMutableDictionary dictionary];
         groupsToCommitForDeletion = [NSMutableArray array];
         preloadedRoomsStates = [NSMutableDictionary dictionary];
@@ -619,9 +617,7 @@ static NSUInteger preloadOptions;
 {
     [super storeUser:user];
 
-    [usersToCommitLock lock];
     usersToCommit[user.userId] = user;
-    [usersToCommitLock unlock];
 }
 
 - (void)storeGroup:(MXGroup *)group
@@ -1943,13 +1939,11 @@ static NSUInteger preloadOptions;
 - (void)saveUsers
 {
     // Save only in case of change
-    [usersToCommitLock lock];
     if (usersToCommit.count)
     {
         // Take a snapshot of users to store them on the other thread
         NSMutableDictionary *theUsersToCommit = [[NSMutableDictionary alloc] initWithDictionary:usersToCommit copyItems:YES];
         [usersToCommit removeAllObjects];
-        [usersToCommitLock unlock];
 #if DEBUG
         MXLogDebug(@"[MXFileStore commit] queuing saveUsers");
 #endif
@@ -2018,10 +2012,6 @@ static NSUInteger preloadOptions;
             MXLogDebug(@"[MXFileStore] saveUsers in %.0fms", [[NSDate date] timeIntervalSinceDate:startDate] * 1000);
 #endif
         });
-    }
-    else
-    {
-        [usersToCommitLock unlock];
     }
 }
 
